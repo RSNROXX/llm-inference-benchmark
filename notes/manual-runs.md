@@ -53,6 +53,27 @@ Conditions: hybrid mode (desktop on Intel iGPU; NVIDIA idle at 0%, 13 MiB, Disp.
 
 *With only 1 uncached token, the reported prompt rate (about 90 to 107 tok/s) measures fixed overhead, not throughput.
 
+## Session 4 (2026-10-30): cache behaviour via the Python client
+
+Hybrid GPU mode, llama3.2:3b, model already loaded. Prompt eval time per run:
+
+| Run | Prompt | Prompt eval |
+|---|---|---|
+| A1 | docker (first request after load) | 73.3 ms |
+| A2 | docker (repeat) | 9.7 ms |
+| B1 | git (new) | 11.0 ms |
+| B2 | python (new) | 14.9 ms |
+| B3 | docker (after git and python) | 14.7 ms |
+| B4 | docker (repeat) | 9.8 ms |
+
+Findings:
+
+1. The prompt cache only keeps the last prompt: docker was uncached again after two other prompts (B3).
+2. Ollama still reports all 33 prompt tokens on a cache hit, so prompt tok/s computed from a repeated prompt is wrong (about 3,400 tok/s).
+3. Only the 6-word question differs between prompts; the chat template in front stays cached, so new vs repeated prompts differ by only about 5 ms.
+4. The 73 ms in A1 is first-request overhead after loading, not a cache miss. Warm-up runs remove it.
+5. With 33-token prompts, prompt eval time is dominated by fixed overhead. Measuring prompt throughput needs long prompts (hundreds to thousands of tokens).
+
 ### Findings
 
 1. **Power mode barely matters for a 3B model:** warm output 106.3 tok/s (Balanced) vs 108.9 tok/s (Performance), about +2.5% despite a much higher power limit (80 W vs 133 W). Small-model token generation is limited by memory bandwidth, not power.
